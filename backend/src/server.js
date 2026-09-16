@@ -1,56 +1,105 @@
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
-const dotenv = require("dotenv");
+const bcrypt = require("bcryptjs");
 
 const connectDB = require("./config/db");
 
-const restaurantRoutes = require("./routes/restaurantRoutes");
-const menuRoutes = require("./routes/menuRoutes");
+const User = require("./models/User");
 
-dotenv.config();
+const authRoutes = require("./routes/authRoutes");
+const shopRoutes = require("./routes/shopRoutes");
+const menuRoutes = require("./routes/menuRoutes");
 
 const app = express();
 
-
-// Connect database
 connectDB();
 
-
-// Middleware
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin:
+      process.env.CLIENT_URL ||
+      "http://localhost:5173"
   })
 );
 
 app.use(express.json());
 
-
-// API routes
-app.use("/api/restaurant", restaurantRoutes);
-app.use("/api/menu", menuRoutes);
-
-
-// Health check
 app.get("/", (req, res) => {
   res.json({
-    success: true,
-    message: "Local Food API is running",
+    message: "LocalBite API is running"
   });
 });
 
+app.use(
+  "/api/auth",
+  authRoutes
+);
 
-// 404
+app.use(
+  "/api/shops",
+  shopRoutes
+);
+
+app.use(
+  "/api/menu",
+  menuRoutes
+);
+
 app.use((req, res) => {
   res.status(404).json({
-    success: false,
-    message: "Route not found",
+    message: "Route not found"
   });
 });
 
+const PORT =
+  process.env.PORT || 5000;
 
-const PORT = process.env.PORT || 5000;
+const seedAdmin = async () => {
+  try {
+    if (
+      !process.env.ADMIN_EMAIL ||
+      !process.env.ADMIN_PASSWORD
+    ) {
+      return;
+    }
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+    const existingAdmin =
+      await User.findOne({
+        email: process.env.ADMIN_EMAIL.toLowerCase()
+      });
+
+    if (!existingAdmin) {
+      const hashedPassword =
+        await bcrypt.hash(
+          process.env.ADMIN_PASSWORD,
+          10
+        );
+
+      await User.create({
+        name: "LocalBite Admin",
+        email:
+          process.env.ADMIN_EMAIL.toLowerCase(),
+        password: hashedPassword,
+        role: "admin",
+        status: "approved"
+      });
+
+      console.log("Admin account created");
+    }
+  } catch (error) {
+    console.error(
+      "Admin seed error:",
+      error.message
+    );
+  }
+};
+
+app.listen(PORT, async () => {
+  console.log(
+    `Server running on port ${PORT}`
+  );
+
+  await seedAdmin();
 });

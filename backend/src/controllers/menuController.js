@@ -1,136 +1,207 @@
 const MenuItem = require("../models/MenuItem");
+const Shop = require("../models/Shop");
 
-// GET all menu items
-const getMenu = async (req, res) => {
+const getShopMenu = async (req, res) => {
   try {
-    const menu = await MenuItem.find().sort({
+    const shop = await Shop.findOne({
+      _id: req.params.shopId,
+      status: "approved"
+    });
+
+    if (!shop) {
+      return res.status(404).json({
+        message: "Shop not found"
+      });
+    }
+
+    const menu = await MenuItem.find({
+      shop: shop._id,
+      available: true
+    }).sort({
       category: 1,
-      name: 1,
+      createdAt: -1
     });
 
-    res.status(200).json({
-      success: true,
-      count: menu.length,
-      menu,
-    });
+    res.json(menu);
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
-      success: false,
-      message: "Failed to fetch menu",
-      error: error.message,
+      message: "Failed to fetch menu"
     });
   }
 };
 
-
-// GET single menu item
-const getMenuItem = async (req, res) => {
+const getMyMenu = async (req, res) => {
   try {
-    const item = await MenuItem.findById(req.params.id);
+    const shop = await Shop.findOne({
+      owner: req.user._id
+    });
 
-    if (!item) {
+    if (!shop) {
       return res.status(404).json({
-        success: false,
-        message: "Menu item not found",
+        message: "Shop not found"
       });
     }
 
-    res.status(200).json({
-      success: true,
-      item,
+    const menu = await MenuItem.find({
+      shop: shop._id
+    }).sort({
+      createdAt: -1
     });
+
+    res.json(menu);
   } catch (error) {
     res.status(500).json({
-      success: false,
-      message: "Failed to fetch menu item",
-      error: error.message,
+      message: "Failed to fetch menu"
     });
   }
 };
 
-
-// CREATE menu item
-const createMenuItem = async (req, res) => {
+const createMyMenuItem = async (req, res) => {
   try {
-    const item = await MenuItem.create(req.body);
-
-    res.status(201).json({
-      success: true,
-      item,
+    const shop = await Shop.findOne({
+      owner: req.user._id
     });
+
+    if (!shop) {
+      return res.status(404).json({
+        message: "Shop not found"
+      });
+    }
+
+    if (shop.status !== "approved") {
+      return res.status(403).json({
+        message:
+          "Your shop must be approved before adding menu items"
+      });
+    }
+
+    const {
+      name,
+      description,
+      price,
+      category,
+      image,
+      isVeg,
+      available
+    } = req.body;
+
+    if (!name || price === undefined) {
+      return res.status(400).json({
+        message: "Name and price are required"
+      });
+    }
+
+    const item = await MenuItem.create({
+      shop: shop._id,
+      name,
+      description,
+      price,
+      category,
+      image,
+      isVeg,
+      available
+    });
+
+    res.status(201).json(item);
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
-      success: false,
-      message: "Failed to create menu item",
-      error: error.message,
+      message: "Failed to create menu item"
     });
   }
 };
 
-
-// UPDATE menu item
-const updateMenuItem = async (req, res) => {
+const updateMyMenuItem = async (req, res) => {
   try {
-    const item = await MenuItem.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      {
-        new: true,
-        runValidators: true,
+    const shop = await Shop.findOne({
+      owner: req.user._id
+    });
+
+    if (!shop) {
+      return res.status(404).json({
+        message: "Shop not found"
+      });
+    }
+
+    const item = await MenuItem.findOne({
+      _id: req.params.id,
+      shop: shop._id
+    });
+
+    if (!item) {
+      return res.status(404).json({
+        message: "Menu item not found"
+      });
+    }
+
+    const allowedFields = [
+      "name",
+      "description",
+      "price",
+      "category",
+      "image",
+      "isVeg",
+      "available"
+    ];
+
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        item[field] = req.body[field];
       }
-    );
-
-    if (!item) {
-      return res.status(404).json({
-        success: false,
-        message: "Menu item not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      item,
     });
+
+    await item.save();
+
+    res.json(item);
   } catch (error) {
+    console.error(error);
+
     res.status(500).json({
-      success: false,
-      message: "Failed to update menu item",
-      error: error.message,
+      message: "Failed to update menu item"
     });
   }
 };
 
-
-// DELETE menu item
-const deleteMenuItem = async (req, res) => {
+const deleteMyMenuItem = async (req, res) => {
   try {
-    const item = await MenuItem.findByIdAndDelete(req.params.id);
+    const shop = await Shop.findOne({
+      owner: req.user._id
+    });
 
-    if (!item) {
+    if (!shop) {
       return res.status(404).json({
-        success: false,
-        message: "Menu item not found",
+        message: "Shop not found"
       });
     }
 
-    res.status(200).json({
-      success: true,
-      message: "Menu item deleted successfully",
+    const item = await MenuItem.findOneAndDelete({
+      _id: req.params.id,
+      shop: shop._id
+    });
+
+    if (!item) {
+      return res.status(404).json({
+        message: "Menu item not found"
+      });
+    }
+
+    res.json({
+      message: "Menu item deleted"
     });
   } catch (error) {
     res.status(500).json({
-      success: false,
-      message: "Failed to delete menu item",
-      error: error.message,
+      message: "Failed to delete menu item"
     });
   }
 };
-
 
 module.exports = {
-  getMenu,
-  getMenuItem,
-  createMenuItem,
-  updateMenuItem,
-  deleteMenuItem,
+  getShopMenu,
+  getMyMenu,
+  createMyMenuItem,
+  updateMyMenuItem,
+  deleteMyMenuItem
 };

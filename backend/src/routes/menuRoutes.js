@@ -1,23 +1,51 @@
 const express = require("express");
 
 const {
-  getMenu,
-  getMenuItem,
-  createMenuItem,
-  updateMenuItem,
-  deleteMenuItem,
+  getShopMenu,
+  getMyMenu,
+  createMyMenuItem,
+  updateMyMenuItem,
+  deleteMyMenuItem
 } = require("../controllers/menuController");
+
+const {
+  protect,
+  authorize
+} = require("../middleware/auth");
 
 const router = express.Router();
 
-router.get("/", getMenu);
+router.get(
+  "/shop/:shopId",
+  getShopMenu
+);
 
-router.get("/:id", getMenuItem);
+router.get(
+  "/owner/me",
+  protect,
+  authorize("shop_owner"),
+  getMyMenu
+);
 
-router.post("/", createMenuItem);
+router.post(
+  "/owner/me",
+  protect,
+  authorize("shop_owner"),
+  createMyMenuItem
+);
 
-router.put("/:id", updateMenuItem);
+router.put(
+  "/owner/me/:id",
+  protect,
+  authorize("shop_owner"),
+  updateMyMenuItem
+);
 
-router.delete("/:id", deleteMenuItem);
+router.delete(
+  "/owner/me/:id",
+  protect,
+  authorize("shop_owner"),
+  deleteMyMenuItem
+);
 
 module.exports = router;

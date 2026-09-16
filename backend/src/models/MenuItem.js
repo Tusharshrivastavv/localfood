@@ -2,47 +2,51 @@ const mongoose = require("mongoose");
 
 const menuItemSchema = new mongoose.Schema(
   {
+    shop: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Shop",
+      required: true,
+      index: true
+    },
+
     name: {
       type: String,
       required: true,
-      trim: true,
+      trim: true
     },
 
     description: {
       type: String,
-      default: "",
-      trim: true,
+      default: ""
     },
 
     price: {
       type: Number,
-      required: true,
-      min: 0,
-    },
-
-    image: {
-      type: String,
-      default: "",
+      required: true
     },
 
     category: {
       type: String,
-      required: true,
-      trim: true,
+      default: "Other"
+    },
+
+    image: {
+      type: String,
+      default: ""
     },
 
     isVeg: {
       type: Boolean,
-      default: true,
+      default: true
     },
 
     available: {
       type: Boolean,
-      default: true,
-    },
+      default: true
+    }
   },
   {
-    timestamps: true,
+    timestamps: true
   }
 );
 

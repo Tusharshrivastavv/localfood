@@ -1,405 +1,407 @@
-import { useEffect, useState } from "react";
-import { Trash2, MapPin, Loader2 } from "lucide-react";
+import {
+  useEffect,
+  useState
+} from "react";
 
-const API = "http://localhost:5000/api";
+import { apiFetch } from "../utils/api";
 
 const Admin = () => {
-  const [restaurant, setRestaurant] = useState(null);
-  const [restForm, setRestForm] = useState({
-    name: "",
-    description: "",
-    address: "",
-    city: "",
-    phone: "",
-    image: "",
-    latitude: "",
-    longitude: "",
-    deliveryRadius: 5,
-    rating: 4.5,
-  });
-  const [menuItems, setMenuItems] = useState([]);
-  const [menuForm, setMenuForm] = useState({
-    name: "",
-    description: "",
-    price: "",
-    category: "",
-    image: "",
-    isVeg: true,
-  });
-  const [locating, setLocating] = useState(false);
-  const [locationError, setLocationError] = useState("");
-  const [msg, setMsg] = useState("");
+  const [shops, setShops] =
+    useState([]);
 
-  const detectLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError("Geolocation isn't supported by your browser.");
-      return;
+  const [filter, setFilter] =
+    useState("all");
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState("");
+
+  const fetchShops = async () => {
+    try {
+      setLoading(true);
+
+      const endpoint =
+        filter === "all"
+          ? "/shops/admin/all"
+          : `/shops/admin/all?status=${filter}`;
+
+      const data =
+        await apiFetch(endpoint);
+
+      setShops(data);
+
+    } catch (error) {
+      setError(
+        error.message
+      );
+    } finally {
+      setLoading(false);
     }
-
-    setLocating(true);
-    setLocationError("");
-
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setRestForm((f) => ({
-          ...f,
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        }));
-        setLocating(false);
-      },
-      (err) => {
-        setLocating(false);
-        setLocationError(
-          err.code === err.PERMISSION_DENIED
-            ? "Location permission denied — click 'Detect location' to try again, or enter coordinates manually."
-            : "Couldn't get your location. Click 'Detect location' to retry."
-        );
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
-  const loadRestaurant = () => {
-    fetch(`${API}/restaurant`)
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.success) {
-          setRestaurant(data.restaurant);
-          setRestForm(data.restaurant);
-        } else {
-          // no restaurant yet — auto-detect location for the new one
-          detectLocation();
-        }
-      })
-      .catch(() => detectLocation());
-  };
-
-  const loadMenu = () => {
-    fetch(`${API}/menu`)
-      .then((r) => r.json())
-      .then((data) => data.success && setMenuItems(data.menu))
-      .catch((err) => console.log("Failed to load menu:", err.message));
   };
 
   useEffect(() => {
-    loadRestaurant();
-    loadMenu();
-  }, []);
+    fetchShops();
+  }, [filter]);
 
-  const saveRestaurant = async (e) => {
-    e.preventDefault();
+  const updateStatus = async (
+    id,
+    status
+  ) => {
+    try {
+      await apiFetch(
+        `/shops/admin/${id}/status`,
+        {
+          method: "PATCH",
 
-    const method = restaurant ? "PUT" : "POST";
+          body: JSON.stringify({
+            status
+          })
+        }
+      );
 
-    const res = await fetch(`${API}/restaurant`, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...restForm,
-        latitude: Number(restForm.latitude),
-        longitude: Number(restForm.longitude),
-        deliveryRadius: Number(restForm.deliveryRadius),
-        rating: Number(restForm.rating),
-      }),
-    });
+      fetchShops();
 
-    const data = await res.json();
-
-    if (data.success) {
-      setMsg("Restaurant saved ✓");
-      loadRestaurant();
-    } else {
-      setMsg(data.message || "Failed to save");
+    } catch (error) {
+      setError(
+        error.message
+      );
     }
   };
 
-  const addMenuItem = async (e) => {
-    e.preventDefault();
+  const pendingShops =
+    shops.filter(
+      (shop) =>
+        shop.status ===
+        "pending"
+    );
 
-    const res = await fetch(`${API}/menu`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...menuForm,
-        price: Number(menuForm.price),
-      }),
-    });
+  const approvedShops =
+    shops.filter(
+      (shop) =>
+        shop.status ===
+        "approved"
+    );
 
-    const data = await res.json();
+  const rejectedShops =
+    shops.filter(
+      (shop) =>
+        shop.status ===
+        "rejected"
+    );
 
-    if (data.success) {
-      setMenuForm({
-        name: "",
-        description: "",
-        price: "",
-        category: "",
-        image: "",
-        isVeg: true,
-      });
-      loadMenu();
-    }
-  };
-
-  const deleteItem = async (id) => {
-    await fetch(`${API}/menu/${id}`, { method: "DELETE" });
-    loadMenu();
-  };
-
-  const input =
-    "w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-orange-400";
+  const suspendedShops =
+    shops.filter(
+      (shop) =>
+        shop.status ===
+        "suspended"
+    );
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="text-3xl font-bold text-gray-900">Admin</h1>
+    <div className="admin-page">
 
-      {msg && (
-        <p className="mt-2 text-sm font-medium text-orange-600">{msg}</p>
+      <div className="admin-header">
+
+        <div>
+          <h1>
+            Admin Dashboard
+          </h1>
+
+          <p>
+            Manage LocalBite
+            shops and approvals.
+          </p>
+        </div>
+
+        <button
+          className="verify-button"
+          onClick={() =>
+            setFilter("pending")
+          }
+        >
+          Verify New Shops
+        </button>
+
+      </div>
+
+      {error && (
+        <div className="error">
+          {error}
+        </div>
       )}
 
-      {/* Restaurant form */}
-      <form
-        onSubmit={saveRestaurant}
-        className="mt-8 space-y-4 rounded-2xl border bg-white p-6"
-      >
-        <h2 className="text-xl font-bold">
-          {restaurant ? "Edit Restaurant" : "Add Restaurant"}
-        </h2>
+      <div className="admin-stats">
 
-        <input
-          className={input}
-          placeholder="Name"
-          value={restForm.name}
-          onChange={(e) => setRestForm({ ...restForm, name: e.target.value })}
-          required
-        />
+        <div className="stat-card">
+          <h3>
+            Total
+          </h3>
+          <strong>
+            {shops.length}
+          </strong>
+        </div>
 
-        <textarea
-          className={input}
-          placeholder="Description"
-          value={restForm.description}
-          onChange={(e) =>
-            setRestForm({ ...restForm, description: e.target.value })
+        <div className="stat-card">
+          <h3>
+            Pending
+          </h3>
+          <strong>
+            {pendingShops.length}
+          </strong>
+        </div>
+
+        <div className="stat-card">
+          <h3>
+            Approved
+          </h3>
+          <strong>
+            {approvedShops.length}
+          </strong>
+        </div>
+
+        <div className="stat-card">
+          <h3>
+            Rejected
+          </h3>
+          <strong>
+            {rejectedShops.length}
+          </strong>
+        </div>
+
+        <div className="stat-card">
+          <h3>
+            Suspended
+          </h3>
+          <strong>
+            {suspendedShops.length}
+          </strong>
+        </div>
+
+      </div>
+
+      <div className="admin-filters">
+
+        <button
+          onClick={() =>
+            setFilter("all")
           }
-        />
-
-        <input
-          className={input}
-          placeholder="Address"
-          value={restForm.address}
-          onChange={(e) =>
-            setRestForm({ ...restForm, address: e.target.value })
+          className={
+            filter === "all"
+              ? "active"
+              : ""
           }
-          required
-        />
+        >
+          All Shops
+        </button>
 
-        <input
-          className={input}
-          placeholder="City"
-          value={restForm.city}
-          onChange={(e) => setRestForm({ ...restForm, city: e.target.value })}
-          required
-        />
-
-        <input
-          className={input}
-          placeholder="Phone"
-          value={restForm.phone}
-          onChange={(e) =>
-            setRestForm({ ...restForm, phone: e.target.value })
+        <button
+          onClick={() =>
+            setFilter("pending")
           }
-        />
-
-        <input
-          className={input}
-          placeholder="Image URL"
-          value={restForm.image}
-          onChange={(e) =>
-            setRestForm({ ...restForm, image: e.target.value })
+          className={
+            filter === "pending"
+              ? "active"
+              : ""
           }
-        />
+        >
+          Verify New Shops
+        </button>
 
-        {/* Location — auto-filled, editable as fallback */}
-        <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Location (auto-detected)
-            </span>
+        <button
+          onClick={() =>
+            setFilter("approved")
+          }
+          className={
+            filter === "approved"
+              ? "active"
+              : ""
+          }
+        >
+          Approved
+        </button>
 
-            <button
-              type="button"
-              onClick={detectLocation}
-              className="flex items-center gap-1 rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm"
-            >
-              {locating ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <MapPin size={14} />
-              )}
-              {locating ? "Detecting…" : "Detect location"}
-            </button>
-          </div>
+        <button
+          onClick={() =>
+            setFilter("rejected")
+          }
+          className={
+            filter === "rejected"
+              ? "active"
+              : ""
+          }
+        >
+          Rejected
+        </button>
 
-          {locationError && (
-            <p className="mb-2 text-xs text-red-500">{locationError}</p>
+        <button
+          onClick={() =>
+            setFilter("suspended")
+          }
+          className={
+            filter === "suspended"
+              ? "active"
+              : ""
+          }
+        >
+          Suspended
+        </button>
+
+      </div>
+
+      {loading ? (
+        <div className="loading">
+          Loading shops...
+        </div>
+      ) : (
+        <div className="admin-shop-list">
+
+          {shops.length === 0 && (
+            <div className="empty-state">
+              No shops found.
+            </div>
           )}
 
-          <div className="flex items-center gap-3">
-            <input
-              className={input}
-              type="number"
-              step="any"
-              placeholder="Latitude"
-              value={restForm.latitude}
-              onChange={(e) =>
-                setRestForm({ ...restForm, latitude: e.target.value })
-              }
-              required
-            />
-
-            <input
-              className={input}
-              type="number"
-              step="any"
-              placeholder="Longitude"
-              value={restForm.longitude}
-              onChange={(e) =>
-                setRestForm({ ...restForm, longitude: e.target.value })
-              }
-              required
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <input
-            className={input}
-            type="number"
-            placeholder="Delivery radius (km)"
-            value={restForm.deliveryRadius}
-            onChange={(e) =>
-              setRestForm({ ...restForm, deliveryRadius: e.target.value })
-            }
-          />
-
-          <input
-            className={input}
-            type="number"
-            step="0.1"
-            placeholder="Rating"
-            value={restForm.rating}
-            onChange={(e) =>
-              setRestForm({ ...restForm, rating: e.target.value })
-            }
-          />
-        </div>
-
-        <button className="w-full rounded-xl bg-orange-500 py-3 font-semibold text-white hover:bg-orange-600">
-          {restaurant ? "Update Restaurant" : "Create Restaurant"}
-        </button>
-      </form>
-
-      {/* Menu item form */}
-      <form
-        onSubmit={addMenuItem}
-        className="mt-8 space-y-4 rounded-2xl border bg-white p-6"
-      >
-        <h2 className="text-xl font-bold">Add Menu Item</h2>
-
-        <input
-          className={input}
-          placeholder="Name"
-          value={menuForm.name}
-          onChange={(e) => setMenuForm({ ...menuForm, name: e.target.value })}
-          required
-        />
-
-        <textarea
-          className={input}
-          placeholder="Description"
-          value={menuForm.description}
-          onChange={(e) =>
-            setMenuForm({ ...menuForm, description: e.target.value })
-          }
-        />
-
-        <div className="flex gap-3">
-          <input
-            className={input}
-            type="number"
-            placeholder="Price"
-            value={menuForm.price}
-            onChange={(e) =>
-              setMenuForm({ ...menuForm, price: e.target.value })
-            }
-            required
-          />
-
-          <input
-            className={input}
-            placeholder="Category (e.g. Pizza)"
-            value={menuForm.category}
-            onChange={(e) =>
-              setMenuForm({ ...menuForm, category: e.target.value })
-            }
-            required
-          />
-        </div>
-
-        <input
-          className={input}
-          placeholder="Image URL"
-          value={menuForm.image}
-          onChange={(e) =>
-            setMenuForm({ ...menuForm, image: e.target.value })
-          }
-        />
-
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={menuForm.isVeg}
-            onChange={(e) =>
-              setMenuForm({ ...menuForm, isVeg: e.target.checked })
-            }
-          />
-          Vegetarian
-        </label>
-
-        <button className="w-full rounded-xl bg-orange-500 py-3 font-semibold text-white hover:bg-orange-600">
-          Add Item
-        </button>
-      </form>
-
-      {/* Existing menu items */}
-      <div className="mt-8 rounded-2xl border bg-white p-6">
-        <h2 className="text-xl font-bold">
-          Menu Items ({menuItems.length})
-        </h2>
-
-        <div className="mt-4 divide-y">
-          {menuItems.map((item) => (
-            <div
-              key={item._id}
-              className="flex items-center justify-between py-3"
-            >
-              <div>
-                <p className="font-semibold">{item.name}</p>
-                <p className="text-sm text-gray-500">
-                  {item.category} · ₹{item.price}
-                </p>
-              </div>
-
-              <button
-                onClick={() => deleteItem(item._id)}
-                className="text-gray-400 hover:text-red-500"
+          {shops.map(
+            (shop) => (
+              <div
+                className="admin-shop-card"
+                key={shop._id}
               >
-                <Trash2 size={18} />
-              </button>
-            </div>
-          ))}
+
+                <div className="shop-card-header">
+
+                  <div>
+
+                    <h2>
+                      {shop.name}
+                    </h2>
+
+                    <span
+                      className={`status-badge ${shop.status}`}
+                    >
+                      {shop.status}
+                    </span>
+
+                  </div>
+
+                </div>
+
+                <div className="shop-card-details">
+
+                  <p>
+                    <strong>
+                      Owner:
+                    </strong>{" "}
+                    {shop.owner?.name}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Email:
+                    </strong>{" "}
+                    {shop.owner?.email}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Phone:
+                    </strong>{" "}
+                    {shop.owner?.phone ||
+                      shop.phone}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Address:
+                    </strong>{" "}
+                    {shop.address}
+                  </p>
+
+                  <p>
+                    <strong>
+                      City:
+                    </strong>{" "}
+                    {shop.city}
+                  </p>
+
+                  <p>
+                    <strong>
+                      Description:
+                    </strong>{" "}
+                    {shop.description ||
+                      "No description"}
+                  </p>
+
+                </div>
+
+                <div className="admin-actions">
+
+                  {shop.status !==
+                    "approved" && (
+                    <button
+                      onClick={() =>
+                        updateStatus(
+                          shop._id,
+                          "approved"
+                        )
+                      }
+                    >
+                      Approve
+                    </button>
+                  )}
+
+                  {shop.status !==
+                    "rejected" && (
+                    <button
+                      onClick={() =>
+                        updateStatus(
+                          shop._id,
+                          "rejected"
+                        )
+                      }
+                    >
+                      Reject
+                    </button>
+                  )}
+
+                  {shop.status !==
+                    "suspended" && (
+                    <button
+                      onClick={() =>
+                        updateStatus(
+                          shop._id,
+                          "suspended"
+                        )
+                      }
+                    >
+                      Suspend
+                    </button>
+                  )}
+
+                  {shop.status ===
+                    "suspended" && (
+                    <button
+                      onClick={() =>
+                        updateStatus(
+                          shop._id,
+                          "approved"
+                        )
+                      }
+                    >
+                      Reactivate
+                    </button>
+                  )}
+
+                </div>
+
+              </div>
+            )
+          )}
+
         </div>
-      </div>
+      )}
+
     </div>
   );
 };
