@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react";
-import { useCart } from "../../../backend/src/context/CartContext";
-
+// import { useCart } from "../../../backend/src/context/CartContext";
+import { useCart } from "../context/CartContext";
 const MenuItemCard = ({ item }) => {
   const { addToCart } = useCart();
 

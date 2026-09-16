@@ -1,7 +1,36 @@
-import { Clock, Star, MapPin } from "lucide-react";
-import { restaurant } from "../data/mockData";
+import { useEffect, useState } from "react";
+import { Clock, Star, MapPin, Navigation } from "lucide-react";
+import { useGeolocation } from "../hooks/useGeolocation";
+import { getDistanceKm, formatDistance } from "../utils/distance";
 
 const RestaurantCard = () => {
+  const [restaurant, setRestaurant] = useState(null);
+  const { location, status, requestLocation } = useGeolocation();
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/restaurant")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.success) setRestaurant(data.restaurant);
+        // if not found, restaurant just stays null — no restaurant shown yet
+      })
+      .catch((err) => console.log("No restaurant yet:", err.message));
+  }, []);
+
+  if (!restaurant) return null;
+
+  const distanceKm =
+    location &&
+    getDistanceKm(
+      location.latitude,
+      location.longitude,
+      restaurant.latitude,
+      restaurant.longitude
+    );
+
+  const inRange =
+    distanceKm !== undefined && distanceKm <= restaurant.deliveryRadius;
+
   return (
     <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-sm">
@@ -36,7 +65,7 @@ const RestaurantCard = () => {
             <div className="mt-5 flex flex-wrap gap-4 text-sm text-gray-600">
               <span className="flex items-center gap-2">
                 <Clock size={17} />
-                {restaurant.deliveryTime}
+                {restaurant.deliveryTime || "25-35 min"}
               </span>
 
               <span className="flex items-center gap-2">
@@ -45,7 +74,57 @@ const RestaurantCard = () => {
               </span>
             </div>
 
-            <button className="mt-7 w-fit rounded-xl bg-orange-500 px-6 py-3 font-semibold text-white hover:bg-orange-600">
+            {/* Distance section */}
+            <div className="mt-5 rounded-xl border border-gray-100 bg-gray-50 p-4">
+              {status === "loading" && (
+                <p className="text-sm text-gray-500">
+                  Finding your location…
+                </p>
+              )}
+
+              {status === "denied" && (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-gray-500">
+                    Enable location to check delivery distance
+                  </p>
+                  <button
+                    onClick={requestLocation}
+                    className="text-sm font-semibold text-orange-500"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {status === "error" && (
+                <p className="text-sm text-gray-500">
+                  Couldn't get your location. Try again in a moment.
+                </p>
+              )}
+
+              {status === "granted" && distanceKm !== undefined && (
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-gray-800">
+                    <Navigation size={16} className="text-orange-500" />
+                    {formatDistance(distanceKm)} away
+                  </span>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-bold ${
+                      inRange
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {inRange ? "Delivers to you" : "Outside delivery range"}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <button
+              disabled={status === "granted" && !inRange}
+              className="mt-6 w-fit rounded-xl bg-orange-500 px-6 py-3 font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+            >
               View Menu
             </button>
           </div>

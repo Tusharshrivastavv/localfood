@@ -1,13 +1,23 @@
+import { useEffect, useState } from "react";
 import { Search, MapPin } from "lucide-react";
 
 const Hero = () => {
+  const [city, setCity] = useState("");
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/restaurant")
+      .then((res) => res.json())
+      .then((data) => data.success && setCity(data.restaurant.city))
+      .catch(() => {});
+  }, []);
+
   return (
     <section className="bg-gradient-to-b from-orange-50 to-white">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
         <div className="max-w-3xl">
           <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-orange-100 px-4 py-2 text-sm font-medium text-orange-600">
             <MapPin size={16} />
-            Delivering in Bhopal
+            {city ? `Delivering in ${city}` : "Delivering locally"}
           </div>
 
           <h1 className="text-4xl font-bold leading-tight tracking-tight text-gray-900 sm:text-5xl lg:text-6xl">

@@ -54,7 +54,37 @@ const createRestaurant = async (req, res) => {
 };
 
 
+// UPDATE restaurant
+const updateRestaurant = async (req, res) => {
+  try {
+    const restaurant = await Restaurant.findOneAndUpdate({}, req.body, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!restaurant) {
+      return res.status(404).json({
+        success: false,
+        message: "Restaurant not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      restaurant,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to update restaurant",
+      error: error.message,
+    });
+  }
+};
+
+
 module.exports = {
   getRestaurant,
   createRestaurant,
+  updateRestaurant,
 };
